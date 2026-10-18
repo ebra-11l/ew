@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تقييم الدافعية التنظيمية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #e0e5e2; 
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            background-color: #f5f2eb;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 800px;
+            overflow: hidden;
+            position: relative;
+        }
+        .option-btn {
+            transition: all 0.2s ease;
+            border: 1px solid #d5cec4;
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: #5f8069;
+            background-color: #e8e4d9;
+        }
+        .option-btn.correct {
+            background-color: #10b981; 
+            border-color: #059669;
+            color: white;
+        }
+        .option-btn.wrong {
+            background-color: #ef4444; 
+            border-color: #dc2626;
+            color: white;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #e8e4d9;
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #8bb19a;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="app-container flex flex-col min-h-[550px]">
+        
+        <!-- Header -->
+        <header class="bg-[#2c3e35] text-[#f5f2eb] p-6 text-center shadow-md z-10">
+            <h1 class="text-2xl sm:text-3xl font-extrabold mb-1"><i class="fa-solid fa-building-user ml-2 text-[#8bb19a]"></i>تقييم الدافعية التنظيمية</h1>
+            <p class="text-sm sm:text-base text-[#d1d5db] font-medium">مقرر السلوك التنظيمي - نشاط تفاعلي</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <div id="app-content" class="flex-grow p-6 sm:p-10 flex flex-col justify-center">
+            <!-- Content Injected via JS -->
+            <div class="flex justify-center items-center h-full">
+                <i class="fa-solid fa-spinner fa-spin text-4xl text-[#5f8069]"></i>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'org-behavior-quiz';
+        
+        let app, auth, db, user;
+        let unsubscribeLeaderboard = null;
+
+        if (firebaseConfig) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        }
+
+        async function initAuth() {
+            if (!auth) return;
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const userCred = await signInWithCustomToken(auth, __initial_auth_token);
+                    user = userCred.user;
+                } else {
+                    const userCred = await signInAnonymously(auth);
+                    user = userCred.user;
+                }
+            } catch (e) {
+                console.error("Authentication failed", e);
+            }
+        }
+
+        const questions = [
+            {
+                type: "عرف",
+                question: "ما هو الوصف الأدق لمفهوم 'الدافعية' في بيئة العمل؟",
+                options: [
+                    "القوة الداخلية التي تحفز الفرد وتوجهه لتحقيق الأهداف التنظيمية.",
+                    "الالتزام بالحضور والانصراف في الوقت المحدد فقط.",
+                    "تأدية المهام الوظيفية خوفاً من الخصومات أو العقوبات الإدارية."
+                ],
+                correctAnswer: 0
+            },
+            {
+                type: "صح وخطأ",
+                question: "الدافعية الداخلية تعني أن الموظف يؤدي مهامه برغبة ذاتية نابعة من حبه للتعلم والتطور الشخصي.",
+                options: ["صح", "خطأ"],
+                correctAnswer: 0 // صح
+            },
+            {
+                type: "صح وخطأ",
+                question: "تحديد الأهداف الوظيفية بوضوح للموظفين ليس له أي تأثير إيجابي على مستوى تحفيزهم.",
+                options: ["صح", "خطأ"],
+                correctAnswer: 1 // خطأ
+            },
+            {
+                type: "صح وخطأ",
+                question: "توفير بيئة عمل تشجع على التعاون يساهم بشكل كبير في تعزيز دافعية الأفراد وزيادة الحافز الجماعي.",
+                options: ["صح", "خطأ"],
+                correctAnswer: 0 // صح
+            },
+            {
+                type: "اختيار من متعدد",
+                question: "أي من الخيارات التالية يعتبر مثالاً واضحاً على (الدافعية الخارجية)؟",
+                options: [
+                    "الشغف بابتكار حلول جديدة للمشاكل التقنية.",
+                    "العمل بجد للحصول على مكافأة مالية أو ترقية وظيفية.",
+                    "الشعور العميق بالرضا النفسي عند إنجاز مهمة صعبة."
+                ],
+                correctAnswer: 1
+            },
+            {
+                type: "اختيار من متعدد",
+                question: "حسب ما درسنا، ما هي النتيجة المباشرة لامتلاك الموظفين لدافعية قوية؟",
+                options: [
+                    "زيادة الصراعات الإدارية داخل الأقسام.",
+                    "تراجع الرغبة في التدريب والتطوير المهني.",
+                    "زيادة الإنتاجية وكفاءة الأداء وتجاوز التحديات بنجاح."
+                ],
+                correctAnswer: 2
+            },
+            {
+                type: "اختيار من متعدد",
+                question: "بصفتك مديراً، ما هو الإجراء الأفضل لتحفيز موظفيك بناءً على مبادئ الدافعية؟",
+                options: [
+                    "المركزية الشديدة وتقليل استقلاليتهم في اتخاذ القرارات.",
+                    "تجاهل إنجازاتهم لتجنب الغرور الوظيفي.",
+                    "تقديم تغذية راجعة مستمرة وبناءة لمساعدتهم على التطور."
+                ],
+                correctAnswer: 2
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let hasAnsweredCurrent = false;
+        let studentName = "";
+
+        const appContent = document.getElementById('app-content');
+
+        window.showLoginScreen = function() {
+            appContent.innerHTML = `
+                <div class="fade-in w-full max-w-md mx-auto text-center">
+                    <div class="mb-6">
+                        <i class="fa-solid fa-id-card text-5xl text-[#5f8069]"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-[#1f2923] mb-2">مرحباً بك في التقييم</h2>
+                    <p class="text-[#4b5563] mb-8 font-medium">الرجاء إدخال اسمك الثنائي لتسجيل مشاركتك في لوحة الصدارة الخاصة بالمقرر.</p>
+                    
+                    <div class="text-right mb-6">
+                        <label class="block text-sm font-bold text-[#2c3e35] mb-2" for="studentNameInput">الاسم الكريم:</label>
+                        <input type="text" id="studentNameInput" placeholder="مثال: أحمد محمد" class="w-full px-4 py-3 rounded-lg border-2 border-[#d5cec4] focus:border-[#5f8069] focus:outline-none transition-colors text-lg" onkeypress="if(event.key === 'Enter') startQuiz()">
+                        <p id="nameError" class="text-red-500 text-sm mt-2 hidden">الرجاء إدخال اسمك قبل البدء.</p>
+                    </div>
+
+                    <button onclick="startQuiz()" class="w-full bg-[#5f8069] hover:bg-[#4b6653] text-white font-bold text-lg py-3 px-6 rounded-lg transition-colors shadow-sm">
+                        دخول للتقييم <i class="fa-solid fa-arrow-left-to-bracket mr-2"></i>
+                    </button>
+                </div>
+            `;
+            setTimeout(() => {
+                const input = document.getElementById('studentNameInput');
+                if(input) input.focus();
+            }, 100);
+        };
+
+        window.startQuiz = function() {
+            const nameInput = document.getElementById('studentNameInput').value.trim();
+            if (!nameInput) {
+                document.getElementById('nameError').classList.remove('hidden');
+                return;
+            }
+            studentName = nameInput;
+            currentQuestionIndex = 0;
+            score = 0;
+            renderQuestion();
+        };
+
+        window.renderQuestion = function() {
+            hasAnsweredCurrent = false;
+            const q = questions[currentQuestionIndex];
+            const progressPercentage = ((currentQuestionIndex) / questions.length) * 100;
+
+            let typeIcon = "";
+            let typeColor = "";
+            if(q.type === "عرف") { typeIcon = "fa-book"; typeColor = "text-[#1f2923] bg-[#d5cec4]"; }
+            else if(q.type === "صح وخطأ") { typeIcon = "fa-scale-balanced"; typeColor = "text-[#1f2923] bg-[#e8e4d9]"; }
+            else { typeIcon = "fa-list-check"; typeColor = "text-[#f5f2eb] bg-[#8bb19a]"; }
+
+            let optionsHtml = '';
+            q.options.forEach((opt, index) => {
+                optionsHtml += `
+                    <button onclick="selectAnswer(${index})" id="btn-${index}" class="option-btn w-full text-right px-5 py-4 rounded-xl text-base sm:text-lg font-medium text-[#1f2923] mb-3 bg-white flex items-center justify-between">
+                        <span class="pl-4">${opt}</span>
+                        <i id="icon-${index}" class="fa-regular fa-circle text-[#d5cec4]"></i>
+                    </button>
+                `;
+            });
+
+            appContent.innerHTML = `
+                <div class="fade-in w-full max-w-3xl mx-auto">
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-[#e8e4d9] rounded-full h-2 mb-6">
+                        <div class="bg-[#5f8069] h-2 rounded-full transition-all duration-500" style="width: ${progressPercentage}%"></div>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mb-6 border-b border-[#d5cec4] pb-4">
+                        <span class="text-xs sm:text-sm font-bold px-3 py-1 rounded-md ${typeColor}">
+                            <i class="fa-solid ${typeIcon} ml-1"></i> نوع السؤال: ${q.type}
+                        </span>
+                        <span class="text-[#4b5563] font-bold text-sm">السؤال ${currentQuestionIndex + 1} من ${questions.length}</span>
+                    </div>
+
+                    <h2 class="text-xl sm:text-2xl font-bold text-[#1f2923] mb-6 leading-relaxed">${q.question}</h2>
+                    
+                    <div class="options-container flex flex-col">
+                        ${optionsHtml}
+                    </div>
+
+                    <div id="next-container" class="mt-6 text-left hidden">
+                        <button onclick="nextQuestion()" class="bg-[#2c3e35] hover:bg-[#1f2923] text-white font-bold text-base py-3 px-8 rounded-lg transition-colors">
+                            التالي <i class="fa-solid fa-chevron-left mr-1"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.selectAnswer = function(selectedIndex) {
+            if (hasAnsweredCurrent) return;
+            hasAnsweredCurrent = true;
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = selectedIndex === q.correctAnswer;
+
+            if (isCorrect) {
+                score++;
+                document.getElementById(`btn-${selectedIndex}`).classList.add('correct');
+                document.getElementById(`icon-${selectedIndex}`).className = "fa-solid fa-circle-check text-white text-xl";
+            } else {
+                document.getElementById(`btn-${selectedIndex}`).classList.add('wrong');
+                document.getElementById(`icon-${selectedIndex}`).className = "fa-solid fa-circle-xmark text-white text-xl";
+                
+                // Show correct answer
+                document.getElementById(`btn-${q.correctAnswer}`).classList.add('correct');
+                document.getElementById(`icon-${q.correctAnswer}`).className = "fa-solid fa-circle-check text-white text-xl";
+            }
+
+            // Disable all buttons
+            for (let i = 0; i < q.options.length; i++) {
+                document.getElementById(`btn-${i}`).disabled = true;
+                if(i !== selectedIndex && i !== q.correctAnswer) {
+                     document.getElementById(`btn-${i}`).style.opacity = "0.5";
+                }
+            }
+
+            document.getElementById('next-container').classList.remove('hidden');
+            document.getElementById('next-container').classList.add('fade-in');
+        }
+
+        window.nextQuestion = function() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                renderQuestion();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        window.finishQuiz = async function() {
+            appContent.innerHTML = `
+                <div class="text-center w-full">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-[#5f8069] mb-4"></i>
+                    <h2 class="text-xl font-bold text-[#1f2923]">جاري تسجيل النتيجة وإعداد لوحة الصدارة...</h2>
+                </div>
+            `;
+
+            if (user && db) {
+                try {
+                    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    await addDoc(leaderboardRef, {
+                        name: studentName,
+                        score: score,
+                        total: questions.length,
+                        timestamp: Date.now()
+                    });
+                } catch (e) {
+                    console.error("Failed to save score", e);
+                }
+            }
+
+            startLeaderboardListener();
+        }
+
+        function startLeaderboardListener() {
+            if (!user || !db) {
+                renderLeaderboardUI([{name: studentName, score: score, total: questions.length, timestamp: Date.now()}]);
+                return;
+            }
+
+            const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            
+            if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+
+            unsubscribeLeaderboard = onSnapshot(leaderboardRef, (snapshot) => {
+                let results = [];
+                snapshot.forEach(doc => {
+                    results.push({ id: doc.id, ...doc.data() });
+                });
+                
+                results.sort((a, b) => {
+                    if (b.score !== a.score) {
+                        return b.score - a.score;
+                    }
+                    return a.timestamp - b.timestamp;
+                });
+                
+                renderLeaderboardUI(results);
+            }, (error) => {
+                console.error("Error fetching leaderboard", error);
+                renderLeaderboardUI([{name: studentName, score: score, total: questions.length, timestamp: Date.now()}]);
+            });
+        }
+
+        function renderLeaderboardUI(allResults) {
+            const myPercentage = Math.round((score / questions.length) * 100);
+            
+            let listHtml = '';
+            if (allResults.length === 0) {
+                listHtml = '<div class="text-center text-gray-500 py-4">لا توجد نتائج مسجلة حتى الآن.</div>';
+            } else {
+                allResults.forEach((res, index) => {
+                    let rankIcon = '';
+                    let rowClass = 'bg-white';
+                    if (index === 0) { rankIcon = '<i class="fa-solid fa-crown text-yellow-500 ml-2"></i>'; rowClass = 'bg-yellow-50 border-yellow-200'; }
+                    else if (index === 1) { rankIcon = '<i class="fa-solid fa-medal text-gray-400 ml-2"></i>'; rowClass = 'bg-gray-50'; }
+                    else if (index === 2) { rankIcon = '<i class="fa-solid fa-medal text-amber-700 ml-2"></i>'; rowClass = 'bg-orange-50'; }
+                    
+                    const isMe = res.name === studentName && res.score === score;
+                    if (isMe) rowClass = 'bg-[#e8f0ec] border-[#8bb19a] font-bold';
+
+                    listHtml += `
+                        <div class="flex justify-between items-center p-3 sm:p-4 mb-2 rounded-lg border ${rowClass}">
+                            <div class="flex items-center text-[#1f2923]">
+                                <span class="w-6 text-center font-bold text-[#5f8069] ml-3">${index + 1}</span>
+                                ${rankIcon}
+                                <span>${res.name} ${isMe ? '<span class="text-xs bg-[#5f8069] text-white px-2 py-1 rounded ml-2 font-normal">أنت</span>' : ''}</span>
+                            </div>
+                            <div class="font-bold text-[#2c3e35]">
+                                ${res.score} / ${res.total || questions.length}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            appContent.innerHTML = `
+                <div class="fade-in w-full max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+                    
+                    <!-- Personal Result Column -->
+                    <div class="md:w-1/3 flex flex-col justify-center items-center text-center p-6 bg-white rounded-xl border border-[#d5cec4] shadow-sm">
+                        <h3 class="text-xl font-bold text-[#1f2923] mb-2">نتيجتك الشخصية</h3>
+                        <p class="text-[#4b5563] mb-6 font-medium">${studentName}</p>
+                        <div class="text-5xl font-black text-[#5f8069] mb-4" dir="ltr">${score} <span class="text-2xl text-gray-400">/ ${questions.length}</span></div>
+                        <p class="text-[#2c3e35] font-bold mt-2">${myPercentage >= 70 ? 'أداء ممتاز، شكراً لمشاركتك الفعالة!' : 'شكراً لمشاركتك ومحاولتك الجيدة!'}</p>
+                    </div>
+
+                    <!-- Leaderboard Column -->
+                    <div class="md:w-2/3 bg-[#f5f2eb]">
+                        <div class="flex items-center justify-between mb-4 px-2">
+                            <h3 class="text-xl font-bold text-[#1f2923]"><i class="fa-solid fa-list-ol ml-2 text-[#8bb19a]"></i>لوحة الصدارة المباشرة</h3>
+                            <span class="text-xs bg-[#2c3e35] text-white px-3 py-1 rounded-full animate-pulse">مباشر <i class="fa-solid fa-circle text-[8px] mr-1 text-red-500"></i></span>
+                        </div>
+                        
+                        <div class="bg-white p-2 rounded-xl border border-[#d5cec4] h-[300px] overflow-y-auto custom-scroll shadow-inner">
+                            ${listHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.onload = async function() {
+            await initAuth();
+            showLoginScreen();
+        };
+
+    </script>
+</body>
+</html>
